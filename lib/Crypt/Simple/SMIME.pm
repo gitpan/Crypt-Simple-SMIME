@@ -14,11 +14,11 @@
 #
 #  Copyright (c) 2003-2004 Down Home Web Design, Inc.  All rights reserved.
 #
-#  $Header: /home/cvs/simple_smime/lib/Crypt/Simple/SMIME.pm,v 0.3 2004/10/10 18:32:25 cvs Exp $
+#  $Header: /home/cvs/simple_smime/lib/Crypt/Simple/SMIME.pm,v 0.4 2004/10/10 19:07:26 cvs Exp $
 #
 #  $Log: SMIME.pm,v $
-#  Revision 0.3  2004/10/10 18:32:25  cvs
-#  Added Interchange user tag and directions
+#  Revision 0.4  2004/10/10 19:07:26  cvs
+#  Improve error reporting
 #
 #  Revision 0.1  2004/10/10 00:01:27  cvs
 #  Initial checkin
@@ -125,7 +125,7 @@ use strict;
 use File::Temp qw/ :mktemp  /;
 use vars qw($VERSION);
 
-( $VERSION ) = '$Revision: 0.3 $ ' =~ /\$Revision:\s+([^\s]+)/;
+( $VERSION ) = '$Revision: 0.4 $ ' =~ /\$Revision:\s+([^\s]+)/;
 
 
 
@@ -244,6 +244,12 @@ sub SendMail(){
 		my $openssl		= $self->{open_ssl_path};
 		my $pub_cert	= $self->{certificate_path};
 		my $sendmail	= $self->{sendmail_path};
+
+		my $openssl_out = "/tmp/" . mktemp('smimeXXXXXXX') . ".pem";
+		my $openssl_err = "/tmp/" . mktemp('smimeXXXXXXX') . ".pem";
+		my $sendmail_out = "/tmp/" . mktemp('smimeXXXXXXX') . ".pem";
+		my $sendmail_err = "/tmp/" . mktemp('smimeXXXXXXX') . ".pem";
+
 	    my $result;
 
 	    $self->{encrypt_command} = "echo '\n" . $self->_str_replace('"', '\\"', $message ) . "'  | $openssl smime -subject '$subject' -from '$from' -encrypt  $pub_cert | $sendmail '$to' 2>/dev/null";
@@ -252,9 +258,21 @@ sub SendMail(){
 
 		if ( $result ) {
 
-			$self->Error("Unknown error sending encrypted mail");
+			my $message = "Unknown error sending encrypted mail\n";
+
+			$message .= "openssl  STDOUT: " . $self->_read_file($openssl_out) . "\n\n";
+			$message .= "openssl  STDERR: " . $self->_read_file($openssl_err) . "\n\n";
+			$message .= "sendmail STDOUT: " . $self->_read_file($sendmail_out) . "\n\n";
+			$message .= "sendmail STDOUT: " . $self->_read_file($sendmail_err) . "\n\n";
+
+			$self->Error($message);
 			$rtn = 0;
 		}
+		if ( -f $openssl_out )  { unlink($openssl_out);	}
+		if ( -f $openssl_err )  { unlink($openssl_err);	}
+		if ( -f $sendmail_out ) { unlink($sendmail_out);	}
+		if ( -f $sendmail_err ) { unlink($sendmail_err);	}
+
 	}
 	return $rtn;
 }
@@ -346,6 +364,20 @@ sub _assessor_util(){
 		$self->{$key} = $value;
 	}
 	return $self->{$key};
+}
+
+sub _read_file {
+	my $self = shift;
+	my ($filename) = @_;
+	my $contents;
+
+	open(IN, "< $filename");
+
+	while ( my $line = <IN> ) {
+
+		$contents .= $line;
+	}
+	return $contents;
 }
 # Called if using a Netscape certificate is being used
 #

@@ -14,9 +14,15 @@
 #
 #  Copyright (c) 2003-2004 Down Home Web Design, Inc.  All rights reserved.
 #
-#  $Header: /home/cvs/simple_smime/lib/Crypt/Simple/SMIME.pm,v 0.4 2004/10/10 19:07:26 cvs Exp $
+#  $Header: /home/cvs/simple_smime/lib/Crypt/Simple/SMIME.pm,v 0.6 2004/11/01 16:53:38 cvs Exp $
 #
 #  $Log: SMIME.pm,v $
+#  Revision 0.6  2004/11/01 16:53:38  cvs
+#  Fix so email sets the from address properly
+#
+#  Revision 0.5  2004/10/10 21:11:41  cvs
+#  Minor fixes
+#
 #  Revision 0.4  2004/10/10 19:07:26  cvs
 #  Improve error reporting
 #
@@ -125,7 +131,7 @@ use strict;
 use File::Temp qw/ :mktemp  /;
 use vars qw($VERSION);
 
-( $VERSION ) = '$Revision: 0.4 $ ' =~ /\$Revision:\s+([^\s]+)/;
+( $VERSION ) = '$Revision: 0.6 $ ' =~ /\$Revision:\s+([^\s]+)/;
 
 
 
@@ -245,14 +251,15 @@ sub SendMail(){
 		my $pub_cert	= $self->{certificate_path};
 		my $sendmail	= $self->{sendmail_path};
 
-		my $openssl_out = "/tmp/" . mktemp('smimeXXXXXXX') . ".pem";
-		my $openssl_err = "/tmp/" . mktemp('smimeXXXXXXX') . ".pem";
-		my $sendmail_out = "/tmp/" . mktemp('smimeXXXXXXX') . ".pem";
-		my $sendmail_err = "/tmp/" . mktemp('smimeXXXXXXX') . ".pem";
+		my $openssl_err = "/tmp/" . mktemp('smimeXXXXXXX');
+		my $sendmail_out = "/tmp/" . mktemp('smimeXXXXXXX');
+		my $sendmail_err = "/tmp/" . mktemp('smimeXXXXXXX');
+
+		$subject =~ s/'/\\'/g;
 
 	    my $result;
 
-	    $self->{encrypt_command} = "echo '\n" . $self->_str_replace('"', '\\"', $message ) . "'  | $openssl smime -subject '$subject' -from '$from' -encrypt  $pub_cert | $sendmail '$to' 2>/dev/null";
+	    $self->{encrypt_command} = "echo '\n" . $self->_str_replace('"', '\\"', $message ) . "'  | $openssl smime -to '$to' -subject '$subject' -from '$from' -encrypt  $pub_cert 2> $openssl_err | $sendmail -f$from -t  > $sendmail_out 2> $sendmail_err";
 
         $result = system($self->{encrypt_command});
 
@@ -260,7 +267,6 @@ sub SendMail(){
 
 			my $message = "Unknown error sending encrypted mail\n";
 
-			$message .= "openssl  STDOUT: " . $self->_read_file($openssl_out) . "\n\n";
 			$message .= "openssl  STDERR: " . $self->_read_file($openssl_err) . "\n\n";
 			$message .= "sendmail STDOUT: " . $self->_read_file($sendmail_out) . "\n\n";
 			$message .= "sendmail STDOUT: " . $self->_read_file($sendmail_err) . "\n\n";
@@ -268,7 +274,6 @@ sub SendMail(){
 			$self->Error($message);
 			$rtn = 0;
 		}
-		if ( -f $openssl_out )  { unlink($openssl_out);	}
 		if ( -f $openssl_err )  { unlink($openssl_err);	}
 		if ( -f $sendmail_out ) { unlink($sendmail_out);	}
 		if ( -f $sendmail_err ) { unlink($sendmail_err);	}

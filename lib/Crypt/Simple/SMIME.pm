@@ -14,9 +14,18 @@
 #
 #  Copyright (c) 2003-2004 Down Home Web Design, Inc.  All rights reserved.
 #
-#  $Header: /home/cvs/simple_smime/lib/Crypt/Simple/SMIME.pm,v 0.6 2004/11/01 16:53:38 cvs Exp $
+#  $Header: /home/cvs/simple_smime/lib/Crypt/Simple/SMIME.pm,v 0.9 2005/01/29 14:52:13 cvs Exp $
 #
 #  $Log: SMIME.pm,v $
+#  Revision 0.9  2005/01/29 14:52:13  cvs
+#  Minor change to version assignement syntax.
+#
+#  Revision 0.8  2005/01/29 14:47:24  cvs
+#  Changed SignedEmailCertificate method to elimiate a warning message when it tries to detect if a filename or certificate was provided to the method.
+#
+#  Revision 0.7  2005/01/29 14:38:30  cvs
+#  Changed tmp file syntax to make more friendly with some ISP temp file access restrictions.  Thanks to for E. v. Pappenheim for providing the patch.
+#
 #  Revision 0.6  2004/11/01 16:53:38  cvs
 #  Fix so email sets the from address properly
 #
@@ -64,7 +73,7 @@ $c->SendmailPath('/usr/sbin/sendmail');
 
 $c->CertificatePath('/home/bob/certificate.pem')
 
-$c->SendMail($to,$from,$subject,$message);
+$c->SendMail($from,$to,$subject,$message);
 
 $c->Close();
 
@@ -131,7 +140,7 @@ use strict;
 use File::Temp qw/ :mktemp  /;
 use vars qw($VERSION);
 
-( $VERSION ) = '$Revision: 0.6 $ ' =~ /\$Revision:\s+([^\s]+)/;
+( $VERSION ) = '$Revision: 0.9 $' =~ /\$Revision:\s+([^\s]+)/;
 
 
 
@@ -251,9 +260,9 @@ sub SendMail(){
 		my $pub_cert	= $self->{certificate_path};
 		my $sendmail	= $self->{sendmail_path};
 
-		my $openssl_err = "/tmp/" . mktemp('smimeXXXXXXX');
-		my $sendmail_out = "/tmp/" . mktemp('smimeXXXXXXX');
-		my $sendmail_err = "/tmp/" . mktemp('smimeXXXXXXX');
+		my $openssl_err = mktemp('/tmp/smimeXXXXXXX');
+		my $sendmail_out = mktemp('/tmp/smimeXXXXXXX');
+		my $sendmail_err = mktemp('/tmp/smimeXXXXXXX');
 
 		$subject =~ s/'/\\'/g;
 
@@ -394,14 +403,14 @@ sub _convert_signed_certificate {
 	$self->_write_signed_email_to_temp_file();
 
 
-	my $pemfile = "/tmp/" . mktemp('smimeXXXXXXX') . ".pem";
+	my $pemfile = mktemp('/tmp/smimeXXXXXXX') . ".pem";
 
 	$self->CertificatePath($pemfile);
 	$self->{tmp_cert_file} = $pemfile;
 
 	my $signedemailfile = $self->{signed_cert_path};
 
-	my $msgfile = "/tmp/" . mktemp('smimeXXXXXXX');
+	my $msgfile = mktemp('/tmp/smimeXXXXXXX');
 	$self->{tmp_msg_file} = $pemfile;
 
 	my $openssl = $self->OpenSSLPath();
@@ -422,7 +431,7 @@ sub _write_signed_email_to_temp_file {
 
 	my $self = shift;
 
-	$self->{signed_cert_path} = "/tmp/" . mktemp('smimeXXXXXXX') . ".p12";
+	$self->{signed_cert_path} = mktemp('/tmp/smimeXXXXXXX') . ".p12";
 	my $filename = $self->{signed_cert_path};
 
 	$self->{tmp_signed_cert_path} = $filename;
@@ -507,7 +516,7 @@ sub SignedEmailCertificate(){
 
 	if ($var) {
 
-		if ( -f $var ) {
+		if ( ! $var =~ /\n/ && -f $var ) {
 
 			open(FILE,"< $var");
 			$var = '';
@@ -539,7 +548,7 @@ sub Certificate(){
 
 		$self->{certificate} = $var;
 
-		my $pemfile = "/tmp/" . mktemp('smimeXXXXXXX') . ".pem";
+		my $pemfile = mktemp('/tmp/smimeXXXXXXX') . ".pem";
 
 		$self->CertificatePath($pemfile);
 		$self->{tmp_cert_file} = $pemfile;

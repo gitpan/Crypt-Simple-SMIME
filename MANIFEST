@@ -14,3 +14,5 @@ Makefile.old
 etc/smime_report
 UserTag/smime.tag
 INSTALL.interchange
+ChangeLog
+META.yml                                 Module meta-data (added by MakeMaker)
